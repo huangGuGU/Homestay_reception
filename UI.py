@@ -3,8 +3,8 @@ from functools import partial
 
 from PyQt5.QtGui import QRegularExpressionValidator
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QWidget, \
-    QLineEdit, QTableView, QGridLayout, QDateEdit, QMessageBox, QDialog, QDialogButtonBox
-from PyQt5.QtCore import Qt, QRegularExpression, QDate
+    QLineEdit, QTableView, QGridLayout, QDateEdit, QMessageBox, QDialog, QDialogButtonBox, QDateTimeEdit
+from PyQt5.QtCore import Qt, QRegularExpression, QDate, QTimer, QDateTime
 import pymysql
 import pandas as pd
 from datetime import datetime
@@ -13,9 +13,10 @@ from datetime import datetime
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-
+        self.current_floor = None
+        self.timer = None
         self.input_boxes_value = None
-        self.setWindowTitle(f'名宿前台 {datetime.now().strftime("%Y-%m-%d")}')
+        self.refresh()
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -28,13 +29,22 @@ class MainWindow(QMainWindow):
 
         self.rooms_layout = QGridLayout()
         main_layout.addLayout(self.rooms_layout)
-        self.current_floor = None  # 当前没有楼层
         self.check_in_layout = QVBoxLayout()
         main_layout.addLayout(self.check_in_layout)
 
         self.get_data()
         self.floor_layout_design()
         self.check_in_design()
+
+    def refresh(self):
+        def update_time():
+            current_time = QDateTime.currentDateTime().toString("yyyy-MM-dd HH:mm:ss")  # 获取当前时间
+            self.setWindowTitle(f"名宿前台 {current_time}")  # 更新窗口标题显示当前时间
+            self.rooms_layout_design(self.current_floor)
+
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(update_time)  # 每次定时器触发时调用 update_time 方法
+        self.timer.start(1000)
 
     def data2sql(self, room, flag, data=None):
         conn = pymysql.connect(host='localhost', port=3306, user='root', password='12345678', db=f'前台数据')
@@ -100,7 +110,7 @@ class MainWindow(QMainWindow):
 
     def rooms_layout_design(self, floor):
         self.clear_layout(self.rooms_layout)
-
+        self.current_floor = floor
         current_floor_rooms = self.rooms_info[self.rooms_info['floor_number'] == floor]
         row, col = 0, 0
 
@@ -118,11 +128,13 @@ class MainWindow(QMainWindow):
 
             room_button.clicked.connect(partial(self.Check_in_out_relet, room))
             if room['status'] == 'occupation':
-                room_button.setStyleSheet("background-color: blue; color: white;")
-                current_date = QDate.currentDate()
-                checkout_date = QDate(room['checkout'].year, room['checkout'].month, room['checkout'].day)
+
+                current_date = QDateTime.currentDateTime()
+                checkout_date = QDateTime(room['checkout'].year, room['checkout'].month, room['checkout'].day,room['checkout'].hour,room['checkout'].minute)
                 if checkout_date < current_date:
                     room_button.setStyleSheet("background-color: red; color: white;")
+                else:
+                    room_button.setStyleSheet("background-color: blue; color: white;")
             else:
                 room_button.setStyleSheet("background-color: green; color: white;")
             # 创建房间信息标签，显示电费和水费
@@ -138,7 +150,6 @@ class MainWindow(QMainWindow):
             room_layout.addWidget(room_button)
             room_layout.addWidget(room_info_label)
 
-            # 添加房间布局到主房间布局
             self.rooms_layout.addLayout(room_layout, row, col)
             col += 1
 
@@ -186,7 +197,7 @@ class MainWindow(QMainWindow):
             # 显示对话框
             reply.exec_()
 
-            # 根据点击的按钮进行操作
+
             if reply.clickedButton() == button1:
                 # 退房操作
                 self.data2sql(room, 2)  # 传入房间和状态进行更新
@@ -199,8 +210,8 @@ class MainWindow(QMainWindow):
                     dialog.setWindowTitle('选择续租日期')
 
                     # 创建日期选择控件
-                    date_edit = QDateEdit(dialog)
-                    date_edit.setDisplayFormat("yyyy-MM-dd")  # 设置日期格式
+                    date_edit = QDateTimeEdit(dialog)
+                    date_edit.setDisplayFormat("yyyy-MM-dd HH:mm")  # 设置日期格式
                     date_edit.setDate(QDate.currentDate())  # 默认日期为当前日期
                     date_edit.setMinimumDate(QDate.currentDate())  # 最早选择当前日期
                     date_edit.setCalendarPopup(True)  # 弹出日历选择
@@ -221,7 +232,8 @@ class MainWindow(QMainWindow):
                     # 弹出对话框并等待用户选择
                     if dialog.exec_() == QDialog.Accepted:
                         # 获取用户选择的日期
-                        new_checkout_date = date_edit.date().toString("yyyy-MM-dd")
+
+                        new_checkout_date = date_edit.dateTime().toString("yyyy-MM-dd HH:mm")
                         self.data2sql(room, 3, new_checkout_date)  # 传入房间和新日期进行续租
                         QMessageBox.information(self, f'{room["room_number"]} 续租成功',
                                                 f'房间已续租至 {new_checkout_date}', QMessageBox.Ok)
@@ -265,8 +277,8 @@ class MainWindow(QMainWindow):
 
         # 创建入住日期输入框
         dialog = QDialog(self)
-        check_in_box = QDateEdit(dialog)
-        check_in_box.setDisplayFormat("yyyy-MM-dd")  # 设置日期格式
+        check_in_box = QDateTimeEdit(dialog)
+        check_in_box.setDisplayFormat("yyyy-MM-dd HH:mm")  # 设置日期格式
         check_in_box.setDate(QDate.currentDate())  # 默认日期为当前日期
         check_in_box.setMinimumDate(QDate.currentDate())  # 最早选择当前日期
         check_in_box.setCalendarPopup(True)  # 弹出日历选择
@@ -283,8 +295,8 @@ class MainWindow(QMainWindow):
 
         # 创建预计离开日期输入框
         dialog = QDialog(self)
-        check_out_box = QDateEdit(dialog)
-        check_out_box.setDisplayFormat("yyyy-MM-dd")  # 设置日期格式
+        check_out_box = QDateTimeEdit(dialog)
+        check_out_box.setDisplayFormat("yyyy-MM-dd HH:mm")  # 设置日期格式
         check_out_box.setDate(QDate.currentDate())  # 默认日期为当前日期
         check_out_box.setMinimumDate(QDate.currentDate())  # 最早选择当前日期
         check_out_box.setCalendarPopup(True)  # 弹出日历选择
