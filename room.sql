@@ -9,8 +9,8 @@ CREATE TABLE rooms (
     electricity_fee DECIMAL(10, 2),
     name VARCHAR(20),
     phone VARCHAR(20),
-    checkin date,
-    checkout date
+    checkin DATETIME,
+    checkout DATETIME
 
 );
 

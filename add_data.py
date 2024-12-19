@@ -19,7 +19,7 @@ for floor in range(1, 11):
                     f"INSERT INTO `rooms` (`floor_number`,`room_number`, `status`, `water_fee`, `electricity_fee`, `name`, `phone`, `checkin`, `checkout`) "
                     f"VALUES (%s,%s, %s, %s, %s,%s, %s,%s, %s);",
                     (floor, room_name, status, round(random.uniform(10.5, 500.5), 1),
-                     round(random.uniform(10.5, 500.5), 1), 'hzh', 13456545676, '2024-10-06', '2024-10-06'))
+                     round(random.uniform(10.5, 500.5), 1), 'hzh', 13456545676, '2024-12-09 16:00', '2024-12-20 12:00'))
             else:
                 cursor.execute(
                     f"INSERT INTO `rooms` (`floor_number`,`room_number`, `status`, `water_fee`, `electricity_fee`) "
